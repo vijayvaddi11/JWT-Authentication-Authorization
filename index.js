@@ -5,6 +5,7 @@ import cors from "cors";
 import bcrypt from "bcrypt";
 import connectDB from "./config/db.js";
 import User from "./models/registerSchema.js"
+import verifyToken from "./middleware/verifyTokenMiddleware.js";
 
 dotenv.config();
 
@@ -16,29 +17,7 @@ app.use(express.urlencoded({ extended: true }))
 app.use(express.json())
 
 
-const verifyToken =(req,res,next)=>{
-     const authHeader = req.headers.authorization;
 
-     if(!authHeader){
-          return res.status(401).json({message:'Token missing'})
-     }
-
-     const token = authHeader.split(" ")[1];
-
-     try{
-          const decoded = jwt.verify(token,process.env.JWT_SECRET)
-          console.log(decoded)
-          req.userId = decoded.userId;
-          req.username = decoded.username;
-          next();
-
-     }catch(err){
-          return res.status(401).json({ message: "Invalid token" });
-     }
-
-     
-
-}
 
 
 app.get('/',(req,res)=>{
@@ -139,7 +118,10 @@ app.post('/login', async(req, res)=>{
      }
 });
 
-
+app.get('/profile',verifyToken,(req,res)=>{
+     const name = req.username;
+     return res.status(201).json({message:`welcome ${name}`})
+})
 
 
 
