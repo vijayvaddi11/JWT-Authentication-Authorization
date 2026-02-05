@@ -78,6 +78,8 @@ app.post('/register', async(req, res) => {
 
 });
 
+
+
 app.post('/login', async(req, res)=>{
      try{
      const {email,password} = req.body
@@ -94,20 +96,31 @@ app.post('/login', async(req, res)=>{
           return res.status(400).json({message:"Email or Password is worng"})
      }
 
-     const token = jwt.sign(
+     const accessToken = jwt.sign(
           {userId:existingUSer._id,
           username:existingUSer.username,
-          email:existingUSer.email
           },
           process.env.JWT_SECRET,
-          {expiresIn:'1h'}
+          {expiresIn:'15m'}
                );
 
-     console.log(token)
+     
+
+     const refreshToken = jwt.sign(
+          {userId:existingUSer._id,
+          username:existingUSer.username
+          },
+          process.env.JWT_SECRET,
+          {expiresIn:"7d"}
+     );
+
+     existingUSer.refreshToken = refreshToken;
+     await existingUSer.save();
      
      return res.status(200).json(
           {message:'User Login Successfull',
-          token:token  
+          accessToken:accessToken,
+          refreshToken:refreshToken
           });
 
      }catch(err){
@@ -118,10 +131,48 @@ app.post('/login', async(req, res)=>{
      }
 });
 
+
+app.post('/refresh-token', async (req, res) => {
+     const { refreshToken } = req.body;
+
+     if (!refreshToken) {
+     return res.status(401).json({ message: "Refresh token missing" });
+     }
+
+     try {
+     // Check token valid or not
+     const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET);
+
+     // Check token exists in DB
+     const user = await User.findById(decoded.userId);
+
+     if (!user || user.refreshToken !== refreshToken) {
+          return res.status(403).json({ message: "Invalid refresh token" });
+     }
+
+     // Generate new access token
+     const newAccessToken = jwt.sign(
+          { userId: user._id },
+          process.env.JWT_SECRET,
+          { expiresIn: "15m" }
+     );
+
+     res.json({
+          accessToken: newAccessToken
+     });
+
+     } catch (err) {
+     res.status(403).json({ message: "Refresh token expired or invalid" });
+     }
+});
+
+
 app.get('/profile',verifyToken,(req,res)=>{
      const name = req.username;
-     return res.status(201).json({message:`welcome ${name}`})
+     return res.status(200).json({message:`welcome ${name}`})
 })
+
+
 
 
 
